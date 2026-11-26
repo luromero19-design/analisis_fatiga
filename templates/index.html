@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Análisis de Fatiga Muscular EMG</title>
+<style>
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:linear-gradient(135deg,#0d6efd,#00b4d8);
+    padding:40px;
+}
+.contenedor{
+    max-width:1000px;
+    margin:auto;
+    background:white;
+    border-radius:20px;
+    padding:30px;
+    box-shadow:0 0 20px rgba(0,0,0,0.2);
+}
+h1{
+    text-align:center;
+    color:#0d6efd;
+}
+textarea{
+    width:100%;
+    height:150px;
+    padding:12px;
+    border:1px solid #ccc;
+    border-radius:10px;
+    resize:none;
+    font-size:15px;
+    box-sizing:border-box;
+}
+button{
+    margin-top:20px;
+    width:100%;
+    padding:12px;
+    background:#0d6efd;
+    color:white;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    font-size:16px;
+}
+button:hover{
+    background:#0b5ed7;
+}
+.tarjeta{
+    margin-top:30px;
+    background:#f8f9fa;
+    border-left:6px solid #0d6efd;
+    border-radius:15px;
+    padding:25px;
+}
+.graficas{
+    margin-top:30px;
+}
+.graficas img{
+    width:100%;
+    margin-top:15px;
+    border-radius:10px;
+    border:1px solid #ddd;
+}
+#nuevoAnalisis{
+    display:none;
+    margin-top:25px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="contenedor">
+
+<h1>
+Sistema de Análisis de Fatiga Muscular mediante EMG
+</h1>
+
+<p>
+Ingrese muestras de señal EMG separadas por comas:
+</p>
+
+<textarea id="muestras" placeholder="Ejemplo: 10.5, 22.1, 35.0, 18.4, 12.0"></textarea>
+
+<button onclick="analizar()">
+Analizar señal
+</button>
+
+<div id="resultado"></div>
+
+<button id="nuevoAnalisis" onclick="reiniciar()">
+Realizar otro análisis
+</button>
+
+</div>
+
+<script>
+function analizar(){
+    const texto = document.getElementById("muestras").value.trim();
+    if(!texto){
+        alert("Por favor ingrese al menos un valor numérico.");
+        return;
+    }
+
+    const muestras = texto.split(",")
+        .map(item => item.trim())
+        .filter(item => item !== "")
+        .map(Number);
+
+    if(muestras.some(isNaN) || muestras.length === 0){
+        alert("Asegúrese de ingresar solo números válidos separados por comas.");
+        return;
+    }
+
+    fetch("/evaluar",{
+        method:"POST",
+        headers:{
+            "Content-Type":"application/json"
+        },
+        body:JSON.stringify({
+            muestras:muestras
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if(data.error){
+            alert(data.error);
+            return;
+        }
+
+        let colorEstado = "#28a745";
+        if(data.estado.includes("moderada")){
+            colorEstado = "#ff9800";
+        }
+        if(data.estado.includes("fuerte") || data.estado.includes("fatiga")){
+            colorEstado = "#dc3545";
+        }
+
+        let tiempo = new Date().getTime();
+
+        document.getElementById("resultado").innerHTML =
+        `
+        <h1>Resultado del análisis EMG</h1>
+        <div class="tarjeta">
+            <p><strong>Datos ingresados:</strong> ${texto}</p>
+            <p><strong>RMS:</strong> ${data.rms}</p>
+            <p><strong>Promedio:</strong> ${data.promedio}</p>
+            <p><strong>Valor máximo:</strong> ${data.maximo}</p>
+            <p><strong>Desviación estándar:</strong> ${data.desviacion}</p>
+            <p><strong>Pico FFT:</strong> ${data.pico_fft}</p>
+            <p>
+                <strong>Diagnóstico:</strong>
+                <span style="color:${colorEstado}; font-weight:bold; font-size:18px;">
+                    ${data.estado}
+                </span>
+            </p>
+        </div>
+
+        <div class="graficas">
+            <h2 style="text-align:center">Gráficas generadas por Python</h2>
+            <img src="/static/emg.png?t=${tiempo}" alt="Gráfica EMG">
+            <img src="/static/fft.png?t=${tiempo}" alt="Gráfica FFT">
+        </div>
+        `;
+
+        document.getElementById("nuevoAnalisis").style.display="block";
+    })
+    .catch(err => {
+        alert("Ocurrió un error al procesar la señal.");
+        console.error(err);
+    });
+}
+
+function reiniciar(){
+    document.getElementById("muestras").value="";
+    document.getElementById("resultado").innerHTML="";
+    document.getElementById("nuevoAnalisis").style.display="none";
+}
+</script>
+
+</body>
+</html>
